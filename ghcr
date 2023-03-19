@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+
+GHCR_REPO="ghcr.io"
+GHCR_USER=$GHCR_USER
+GHCR_PASSWORD=$GHCR_PASSWORD
+
+user() {
+    if [[ -z $GHCR_USER ]]
+    then
+        read -p "Enter username : " GHCR_USER
+        echo -e ""
+    else
+        return 1
+    fi
+}
+
+password() {
+    if [[ -z $GHCR_PASSWORD ]]
+    then
+        read -sp "Enter password : " GHCR_PASSWORD
+        echo -e ""
+    else
+        return 1
+    fi
+}
+
+is_docker() {
+    if [ ! -x "$(command -v docker)" ]
+    then
+        echo "Docker is not installed. Please install it."
+        exit 1
+    fi
+}
+
+is_docker_socket() {
+    if [ -x "$(command -v curl)" ]
+    then
+        if ! curl -s --unix-socket /var/run/docker.sock http/_ping 2>&1 >/dev/null
+        then
+            echo "Docker is not running. Please start it."
+        fi
+    fi
+}
+
+IMAGE=$2
+
+login() {
+    is_docker
+    is_docker_socket
+    if [ -z "$(cat ~/.docker/config.json | grep $GHCR_REPO)" ]
+    then
+        user
+        password
+        if ! echo $GHCR_PASSWORD | docker login $GHCR_REPO -u $GHCR_USER --password-stdin
+        then
+            echo "Interactive login failed. Attempting non-interactive login."
+            docker login $GHCR_REPO -u $GHCR_USER -p $GHCR_PASSWORD
+        fi
+    else
+        echo "Already logged in"
+    fi
+}
+
+logout() {
+    is_docker
+    is_docker_socket
+    docker logout $GHCR_REPO
+}
+
+pull() {
+    login
+    docker pull $GHCR_REPO/$IMAGE
+    if [ $3 != "--no-logout" ]
+    then
+        logout
+    fi
+}
+
+push() {
+    login
+    docker push $GHCR_REPO/$IMAGE
+    if [ $3 != "--no-logout" ]
+    then
+        logout
+    fi
+    logout
+}
+
+help() {
+    echo -e "Usage: \033[1mghcr [--help] [login] [logout] [pull ] [push ]\033[0m\n"
+
+    echo -e "If you choose to use the environment variables to login to ghcr, you can use the following:"
+    echo -e "  \033[0;34m- GHCR_USER\n  - GHCR_PASSWORD\n\033[0m"
+    echo -e "Commands:"
+    echo -e "  \033[1mlogin\033[0m     Login to ghcr"
+    echo -e "  \033[1mlogout\033[0m    Logout from ghcr"
+    echo -e "  \033[1mpull\033[0m      Pull image from ghcr [--no-logout]"
+    echo -e "    Options:"
+    echo -e "      \033[1m--no-logout\033[0m    Do not logout after pulling image"
+    echo -e "  \033[1mpush\033[0m      Push image to ghcr [--no-logout]"
+    echo -e "    Options:"
+    echo -e "      \033[1m--no-logout\033[0m    Do not logout after pushing the image"
+    echo -e "\nOptions:"
+    echo -e "  --help    Show this help message and exit\n"
+    echo -e "\n\033[1;33mExample of pulling an image: \033[1mghcr pull octocat/hello-world\033[0m"
+    echo -e "\n\033[1;33mExample of pushing an image: \033[1mghcr push octocat/hello-world\033[0m"
+}
+
+if [ "$1" = "" ]
+then
+    help
+elif [ "$1" = "pull" ]
+then
+    pull
+elif [ "$1" = "push" ]
+then
+    push
+elif [ "$1" = "login" ]
+then
+    login
+elif [ "$1" = "logout" ]
+then
+    logout
+elif [ "$1" = "--help" ]
+then
+    help
+else
+    echo "Invalid command\n"
+    help
+fi

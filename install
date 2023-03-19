@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+mkdir -p ~/.local/bin
+curl -s "https://navhits.github.io/ghcr/ghcr" -o ~/.local/bin/ghcr
+chmod +x ~/.local/bin/ghcr
+
+echo -e "ghcr installed successfully"
+
+if [[ -z $(echo $PATH | grep "$HOME/.local/bin") ]]
+then
+    echo -e "Please add $HOME/.local/bin to your PATH variable in order to use ghcr"
+fi
