@@ -63,7 +63,6 @@ login() {
 
 logout() {
     is_docker
-    is_docker_socket
     docker logout $GHCR_REPO
 }
 
